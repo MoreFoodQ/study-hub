@@ -105,10 +105,14 @@ function trimAbstract(text?: string, maxLen = 780): string | undefined {
   return lastPeriod > maxLen * 0.55 ? cut.slice(0, lastPeriod + 1) : `${cut.trim()}…`;
 }
 
+/** 僅從明確的 arXiv ID、arXiv URL 或 arXiv DOI 提取編號，避免誤判期刊 DOI（如 ss.202023.0099） */
 function extractArxivId(raw?: string): string | undefined {
   if (!raw) return undefined;
-  const m = raw.match(/(\d{4}\.\d{4,5})(v\d+)?/);
-  return m ? m[1] : undefined;
+  const trimmed = raw.trim();
+  const bareMatch = trimmed.match(/^(\d{4}\.\d{4,5})(?:v\d+)?$/);
+  if (bareMatch) return bareMatch[1];
+  const explicitMatch = trimmed.match(/(?:arxiv\.org\/(?:abs|pdf|html)\/|arxiv[:./])(\d{4}\.\d{4,5})(?:v\d+)?/i);
+  return explicitMatch ? explicitMatch[1] : undefined;
 }
 
 export async function fetchFeed(channel: FeedChannel, topic = 'biostatistics'): Promise<FeedItem[]> {

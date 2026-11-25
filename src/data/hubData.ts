@@ -1,4 +1,5 @@
 export type DomainId = 'english' | 'stats' | 'ml' | 'tools';
+export type SiteOwnership = 'mine' | 'external';
 
 export interface StudySite {
   id: string;
@@ -6,6 +7,7 @@ export interface StudySite {
   subtitle: string;
   url: string;
   domain: DomainId;
+  ownership: SiteOwnership;
   env: 'online' | 'local' | 'github';
   tags: string[];
   note: string;
@@ -31,46 +33,75 @@ export interface MicroBite {
   example: string;
 }
 
-export const DOMAINS: { id: DomainId | 'all'; label: string; accent: string }[] = [
-  { id: 'all', label: '全部領域', accent: '#f59e0b' },
-  { id: 'english', label: '英文 DET', accent: '#38bdf8' },
-  { id: 'stats', label: '統計與生統', accent: '#34d399' },
-  { id: 'ml', label: '機器學習 & AI', accent: '#a78bfa' },
-  { id: 'tools', label: '閱讀 & 工作台', accent: '#fb7185' },
+export interface OpenSourcePaperTool {
+  id: string;
+  name: string;
+  role: string;
+  url: string;
+  summary: string;
+  bestFor: string;
+}
+
+export const DOMAINS: { id: DomainId | 'all'; label: string; short: string; accent: string }[] = [
+  { id: 'all', label: '全部領域', short: 'ALL', accent: 'var(--accent)' },
+  { id: 'english', label: '英文 DET', short: 'ENG', accent: 'var(--domain-en)' },
+  { id: 'stats', label: '統計與生統', short: 'STAT', accent: 'var(--domain-stat)' },
+  { id: 'ml', label: '機器學習 & AI', short: 'ML', accent: 'var(--domain-ml)' },
+  { id: 'tools', label: '閱讀 & 工作台', short: 'LAB', accent: 'var(--domain-tool)' },
 ];
 
+// 預設自建站點 ID 清單（供舊版 localStorage 資料升級時自動補齊 ownership 欄位）
+export const MY_DEFAULT_SITE_IDS = new Set([
+  'quill-quest',
+  'biostat-study',
+  'recall-lab',
+  'paperdesk',
+  'lobe-chat',
+  'quill-guides',
+  'quill-grammar-100',
+  'llms-scratch',
+  'tmu-ai-1017',
+  'quill-local',
+]);
+
 export const DEFAULT_SITES: StudySite[] = [
+  // ── 自建核心網站與工具（優先主舞台） ──
   {
     id: 'quill-quest',
     title: 'Quill & Quest · DET 主戰場',
     subtitle: '15,804 題全題型離線與雲端題庫（目標 120+）',
     url: 'https://quill-quest-ten.vercel.app/',
     domain: 'english',
+    ownership: 'mine',
     env: 'online',
     tags: ['DET', '題庫', 'Vercel'],
     note: '每日 15–25 分鐘：優先刷 Read & Complete、Listen & Type、難度 3–5',
     pinned: true,
   },
   {
-    id: 'quill-guides',
-    title: 'Quill & Quest · 語法介詞急救包',
-    subtitle: '13 張 30 秒直覺圖解卡＋快測（/#/guides）',
-    url: 'https://quill-quest-ten.vercel.app/#/guides',
-    domain: 'english',
+    id: 'biostat-study',
+    title: 'Biostatistics Study · 雙語生統',
+    subtitle: 'Applied Biostatistics Chapters 1–8 互動雙語講義',
+    url: 'https://biostatistics-study.vercel.app/login',
+    domain: 'stats',
+    ownership: 'mine',
     env: 'online',
-    tags: ['介係詞', '時態', '微指南'],
-    note: '做錯 Read & Complete / 寫作時隨時翻查',
+    tags: ['生物統計', 'Vercel', '雙語'],
+    note: '重點複習假設檢定、迴歸與存活分析',
     pinned: true,
   },
   {
-    id: 'quill-grammar-100',
-    title: 'Grammar Survival 100 題',
-    subtitle: 'B1→B2 核心文法摸底與句型改寫',
-    url: 'https://quill-quest-ten.vercel.app/#/custom?bank=grammar-survival-100',
-    domain: 'english',
-    env: 'online',
-    tags: ['文法', '診斷'],
-    note: '檢查時態、假設語氣、非限定關係子句弱點',
+    id: 'paperdesk',
+    title: 'PaperDesk · 地端論文與電子書台',
+    subtitle: 'PDF / EPUB 雙語對照、圖片文字翻譯、AI 問答',
+    url: 'https://github.com/MoreFoodQ/PaperDesk',
+    domain: 'tools',
+    ownership: 'mine',
+    env: 'local',
+    tags: ['PDF', 'EPUB', '地端'],
+    note: '地端跑 Codex / Claude CLI 省 API 費；筆記可匯出單檔 HTML',
+    launchCmd: 'Open-PaperDesk.cmd',
+    pinned: true,
   },
   {
     id: 'recall-lab',
@@ -78,50 +109,11 @@ export const DEFAULT_SITES: StudySite[] = [
     subtitle: 'GitHub Pages 間隔重複記憶實驗室',
     url: 'https://morefoodq.github.io/recall-lab/',
     domain: 'english',
+    ownership: 'mine',
     env: 'online',
     tags: ['SRS', '記憶', 'GitHub Pages'],
     note: '搭配跨領域概念長期複習',
-  },
-  {
-    id: 'det-official',
-    title: 'Duolingo English Test 官方站',
-    subtitle: '官方免費不限次數模擬考與題型說明',
-    url: 'https://englishtest.duolingo.com/',
-    domain: 'english',
-    env: 'online',
-    tags: ['DET', '模考'],
-    note: '每週做 1 次官方模考追蹤分數區間',
-  },
-  {
-    id: 'biostat-study',
-    title: 'Biostatistics Study · 雙語生統',
-    subtitle: 'Applied Biostatistics Chapters 1–8',
-    url: 'https://biostatistics-study.vercel.app/login',
-    domain: 'stats',
-    env: 'online',
-    tags: ['生物統計', 'Vercel', '雙語'],
-    note: '重點複習假設檢定、迴歸與存活分析',
     pinned: true,
-  },
-  {
-    id: 'seeing-theory',
-    title: 'Seeing Theory · Brown Univ.',
-    subtitle: '視覺化機率、分佈與統計推論互動教材',
-    url: 'https://seeing-theory.brown.edu/',
-    domain: 'stats',
-    env: 'online',
-    tags: ['機率', '視覺化', '互動'],
-    note: '貝氏定理、中央極限定理直覺超清楚',
-  },
-  {
-    id: 'statquest',
-    title: 'StatQuest with Josh Starmer',
-    subtitle: '統計檢定、PCA、梯度提升與深度學習圖解',
-    url: 'https://statquest.org/',
-    domain: 'stats',
-    env: 'online',
-    tags: ['統計', 'ML', '圖解'],
-    note: '雙重補強生統與機器學習數學直覺',
   },
   {
     id: 'lobe-chat',
@@ -129,20 +121,32 @@ export const DEFAULT_SITES: StudySite[] = [
     subtitle: '日常英文寫作批改、程式與概念討論',
     url: 'https://lobe-chat-rho-seven-22.vercel.app',
     domain: 'ml',
+    ownership: 'mine',
     env: 'online',
     tags: ['AI', 'Vercel'],
     note: '可用來練 DET 口說／寫作潤飾',
   },
   {
-    id: 'hf-papers',
-    title: 'Hugging Face Daily Papers',
-    subtitle: '每日社群精選 AI / LLM 論文與開源程式',
-    url: 'https://huggingface.co/papers',
-    domain: 'ml',
+    id: 'quill-guides',
+    title: 'Quill & Quest · 語法介詞急救包',
+    subtitle: '13 張 30 秒直覺圖解卡＋快測（/#/guides）',
+    url: 'https://quill-quest-ten.vercel.app/#/guides',
+    domain: 'english',
+    ownership: 'mine',
     env: 'online',
-    tags: ['LLM', '論文', '每日更新'],
-    note: '複製 arXiv 網址可直接丟進 PaperDesk 雙語翻譯',
-    pinned: true,
+    tags: ['介係詞', '時態', '微指南'],
+    note: '做錯 Read & Complete / 寫作時隨時翻查',
+  },
+  {
+    id: 'quill-grammar-100',
+    title: 'Grammar Survival 100 題',
+    subtitle: 'B1→B2 核心文法摸底與句型改寫',
+    url: 'https://quill-quest-ten.vercel.app/#/custom?bank=grammar-survival-100',
+    domain: 'english',
+    ownership: 'mine',
+    env: 'online',
+    tags: ['文法', '診斷'],
+    note: '檢查時態、假設語氣、非限定關係子句弱點',
   },
   {
     id: 'llms-scratch',
@@ -150,6 +154,7 @@ export const DEFAULT_SITES: StudySite[] = [
     subtitle: '從零手寫 Transformer、Attention 與微調',
     url: 'https://github.com/MoreFoodQ/LLMs-from-scratch',
     domain: 'ml',
+    ownership: 'mine',
     env: 'github',
     tags: ['PyTorch', 'LLM', '實作'],
     note: '從 Tokenizer、Self-Attention 到指令微調',
@@ -160,21 +165,10 @@ export const DEFAULT_SITES: StudySite[] = [
     subtitle: 'AI 流程自動化與低程式碼應用實務班',
     url: 'https://github.com/MoreFoodQ/tmu-ai-1017',
     domain: 'ml',
+    ownership: 'mine',
     env: 'github',
     tags: ['Automation', 'Workflow'],
     note: '實作自動化流程參考倉庫',
-  },
-  {
-    id: 'paperdesk',
-    title: 'PaperDesk · 地端論文與電子書台',
-    subtitle: 'PDF / EPUB 雙語對照、圖片文字翻譯、GPT 問答',
-    url: 'https://github.com/MoreFoodQ/PaperDesk',
-    domain: 'tools',
-    env: 'local',
-    tags: ['PDF', 'EPUB', '地端'],
-    note: '地端跑 Codex / Claude CLI 省 API 費；筆記可匯出單檔 HTML',
-    launchCmd: 'Open-PaperDesk.cmd',
-    pinned: true,
   },
   {
     id: 'quill-local',
@@ -182,10 +176,109 @@ export const DEFAULT_SITES: StudySite[] = [
     subtitle: '本機 127.0.0.1:5180 免登入直接練習',
     url: 'http://127.0.0.1:5180/',
     domain: 'tools',
+    ownership: 'mine',
     env: 'local',
     tags: ['本機', '127.0.0.1'],
     note: '雙擊 Quill-Quest-Portable\\Start-QuillQuest.cmd 啟動',
     launchCmd: 'Start-QuillQuest.cmd',
+  },
+
+  // ── 外部精選資源（獨立分類，不擠壓個人作品） ──
+  {
+    id: 'seeing-theory',
+    title: 'Seeing Theory · Brown Univ.',
+    subtitle: '視覺化機率、分佈與統計推論互動教材',
+    url: 'https://seeing-theory.brown.edu/',
+    domain: 'stats',
+    ownership: 'external',
+    env: 'online',
+    tags: ['機率', '視覺化', '互動'],
+    note: '貝氏定理、中央極限定理直覺超清楚',
+  },
+  {
+    id: 'statquest',
+    title: 'StatQuest with Josh Starmer',
+    subtitle: '統計檢定、PCA、梯度提升與深度學習圖解',
+    url: 'https://statquest.org/',
+    domain: 'stats',
+    ownership: 'external',
+    env: 'online',
+    tags: ['統計', 'ML', '圖解'],
+    note: '雙重補強生統與機器學習數學直覺',
+  },
+  {
+    id: 'hf-papers',
+    title: 'Hugging Face Daily Papers',
+    subtitle: '每日社群精選 AI / LLM 論文與開源程式',
+    url: 'https://huggingface.co/papers',
+    domain: 'ml',
+    ownership: 'external',
+    env: 'online',
+    tags: ['LLM', '論文', '每日更新'],
+    note: '複製 arXiv 網址可直接丟進 PaperDesk 雙語翻譯',
+  },
+  {
+    id: 'det-official',
+    title: 'Duolingo English Test 官方站',
+    subtitle: '官方免費不限次數模擬考與題型說明',
+    url: 'https://englishtest.duolingo.com/',
+    domain: 'english',
+    ownership: 'external',
+    env: 'online',
+    tags: ['DET', '模考'],
+    note: '每週做 1 次官方模考追蹤分數區間',
+  },
+];
+
+// 開源文獻導讀框架清單
+export const OPEN_SOURCE_PAPER_STACK: OpenSourcePaperTool[] = [
+  {
+    id: 'paperdesk-tool',
+    name: 'PaperDesk',
+    role: '地端雙語精讀台',
+    url: 'https://github.com/MoreFoodQ/PaperDesk',
+    summary: '你的自建地端工具：PDF/EPUB 雙語對照、圖表翻譯與 CLI AI 問答，支援匯出單檔 HTML。',
+    bestFor: '精讀核心論文與長期筆記歸檔',
+  },
+  {
+    id: 'notebooklm-tool',
+    name: 'NotebookLM',
+    role: '多篇帶讀與語音導讀',
+    url: 'https://notebooklm.google.com/',
+    summary: '上傳 1–10 篇 PDF 或貼上連結，搭配 6 步驟中文帶讀指令做跨篇比較與 Audio Overview。',
+    bestFor: '快速建立領域全景與通勤聽摘要',
+  },
+  {
+    id: 'zotero-tool',
+    name: 'Zotero',
+    role: '開源文獻庫管理',
+    url: 'https://www.zotero.org/',
+    summary: '自動抓取 DOI / BibTeX、跨裝置同步註解，並可搭配 Better BibTeX 與翻譯外掛。',
+    bestFor: '生統與 AI 論文長期分類、寫作引用',
+  },
+  {
+    id: 'mineru-tool',
+    name: 'MinerU',
+    role: 'PDF → Markdown / LaTeX 解析',
+    url: 'https://github.com/opendatalab/MinerU',
+    summary: '高精準度還原雙欄版面、數學公式與統計表格為乾淨 Markdown，大幅降低 LLM 誤讀。',
+    bestFor: '將複雜公式與表格轉成知識庫素材',
+  },
+  {
+    id: 'paperqa2-tool',
+    name: 'PaperQA2',
+    role: '開源文獻檢索問答框架',
+    url: 'https://github.com/Future-House/paper-qa',
+    summary: 'FutureHouse 開源的引用級 RAG 代理，針對整批論文回答問題並標註精確出處段落。',
+    bestFor: '文獻回顧（Literature Review）交叉驗證',
+  },
+  {
+    id: 'alphaxiv-tool',
+    name: 'alphaXiv',
+    role: 'arXiv 社群共讀與討論',
+    url: 'https://www.alphaxiv.org/',
+    summary: '在 arXiv 論文旁直接查看作者回覆、重點標註與開放討論，快速掌握真實優缺點。',
+    bestFor: '檢驗新預印本的社群評價與重現性',
   },
 ];
 

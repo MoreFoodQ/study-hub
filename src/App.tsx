@@ -18,16 +18,19 @@ import { VaultDrawer } from './components/VaultDrawer';
 import {
   DAILY_QUOTES,
   DEFAULT_SITES,
+  DEPRECATED_DEFAULT_SITE_IDS,
   MY_DEFAULT_SITE_IDS,
   type SiteOwnership,
   type StudySite,
 } from './data/hubData';
 
 const STORAGE_KEY = 'qq.studyhub.v1';
+const CLEANUP_VERSION = 2;
 
 type StudioView = 'sites' | 'papers' | 'daily';
 
 interface HubState {
+  cleanupVersion?: number;
   theme: 'dark' | 'light';
   artMode: ArtMode;
   sites: StudySite[];
@@ -51,13 +54,24 @@ function dayIndex(d = new Date()): number {
   return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
 }
 
-/** 向下相容舊版 localStorage，自動補上 ownership 欄位 */
-function normalizeSites(rawSites: unknown): StudySite[] {
+/** 向下相容舊版 localStorage，自動補上欄位並清除已下線／失聯預設項目 */
+function normalizeSites(rawSites: unknown, runDeadCleanup: boolean): StudySite[] {
   if (!Array.isArray(rawSites) || !rawSites.length) return DEFAULT_SITES;
+  const defaultById = new Map(DEFAULT_SITES.map((s) => [s.id, s]));
+
   return rawSites
     .filter((s): s is Partial<StudySite> => Boolean(s && typeof s === 'object'))
+    .filter((s) => {
+      if (!runDeadCleanup) return true;
+      const id = typeof s.id === 'string' ? s.id : '';
+      const url = typeof s.url === 'string' ? s.url : '';
+      if (DEPRECATED_DEFAULT_SITE_IDS.has(id)) return false;
+      if (url.includes('lobe-chat-rho-seven-22.vercel.app') || url.includes('127.0.0.1:5180')) return false;
+      return true;
+    })
     .map((s, idx) => {
       const id = typeof s.id === 'string' && s.id ? s.id : `site-${idx}`;
+      const matchedDefault = defaultById.get(id);
       const inferredOwnership: SiteOwnership =
         s.ownership === 'mine' || s.ownership === 'external'
           ? s.ownership
@@ -66,6 +80,9 @@ function normalizeSites(rawSites: unknown): StudySite[] {
             : MY_DEFAULT_SITE_IDS.has(id)
               ? 'mine'
               : 'mine';
+      const quickLinks = Array.isArray(s.quickLinks)
+        ? s.quickLinks.filter((q): q is { label: string; url: string } => Boolean(q && q.label && q.url))
+        : matchedDefault?.quickLinks;
       return {
         id,
         title: s.title || '未命名網站',
@@ -78,6 +95,7 @@ function normalizeSites(rawSites: unknown): StudySite[] {
         note: typeof s.note === 'string' ? s.note : '',
         pinned: Boolean(s.pinned),
         launchCmd: typeof s.launchCmd === 'string' && s.launchCmd ? s.launchCmd : undefined,
+        quickLinks,
       };
     });
 }
@@ -91,10 +109,13 @@ function loadState(): HubState {
         parsed.artMode === 'flow' || parsed.artMode === 'still' || parsed.artMode === 'constellation'
           ? parsed.artMode
           : 'constellation';
+      const needsCleanup = (parsed.cleanupVersion ?? 1) < CLEANUP_VERSION;
+      const normalizedSites = normalizeSites(parsed.sites, needsCleanup);
       return {
+        cleanupVersion: CLEANUP_VERSION,
         theme: parsed.theme === 'light' ? 'light' : 'dark',
         artMode,
-        sites: normalizeSites(parsed.sites),
+        sites: normalizedSites.length ? normalizedSites : DEFAULT_SITES,
         checkins: parsed.checkins && typeof parsed.checkins === 'object' ? parsed.checkins : {},
         tasks: Array.isArray(parsed.tasks) && parsed.tasks.length === 3 ? parsed.tasks : DEFAULT_TASKS,
         focusCount: typeof parsed.focusCount === 'number' ? parsed.focusCount : 0,
@@ -104,6 +125,7 @@ function loadState(): HubState {
     // 忽略損毀的 localStorage 資料
   }
   return {
+    cleanupVersion: CLEANUP_VERSION,
     theme: 'dark',
     artMode: 'constellation',
     sites: DEFAULT_SITES,
@@ -309,8 +331,9 @@ export function App() {
       if (Array.isArray(parsed.sites)) {
         setHub((h) => ({
           ...h,
+          cleanupVersion: CLEANUP_VERSION,
           theme: parsed.theme === 'light' || parsed.theme === 'dark' ? parsed.theme : h.theme,
-          sites: normalizeSites(parsed.sites),
+          sites: normalizeSites(parsed.sites, (parsed.cleanupVersion ?? 1) < CLEANUP_VERSION),
           checkins: parsed.checkins && typeof parsed.checkins === 'object' ? parsed.checkins : h.checkins,
           tasks: Array.isArray(parsed.tasks) && parsed.tasks.length === 3 ? parsed.tasks : h.tasks,
           focusCount: typeof parsed.focusCount === 'number' ? parsed.focusCount : h.focusCount,

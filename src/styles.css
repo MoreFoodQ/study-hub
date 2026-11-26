@@ -916,6 +916,34 @@ textarea {
   color: var(--muted);
 }
 
+.ecard-quicklinks {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.quicklink-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: 11.5px;
+  text-decoration: none;
+  transition: border-color 140ms ease, color 140ms ease, background 140ms ease;
+}
+
+.quicklink-pill:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+}
+
 .ecard-foot {
   position: relative;
   z-index: 1;

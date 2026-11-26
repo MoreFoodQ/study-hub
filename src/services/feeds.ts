@@ -24,7 +24,7 @@ export interface FeedItem {
   meta: string;
 }
 
-export type FeedChannel = 'hf_papers' | 'biostat_papers' | 'hn_ml' | 'github_repos';
+export type FeedChannel = 'hf_papers' | 'biostat_papers' | 'ml_papers';
 
 const ZH_CACHE_KEY = 'qq.studyhub.zhcache.v1';
 const MAX_CACHE_ENTRIES = 120;
@@ -55,6 +55,16 @@ const TOP_TIER_VENUES = [
   'journal of clinical epidemiology',
   'statistica sinica',
   'annals of internal medicine',
+  'neurips',
+  'neural information processing systems',
+  'icml',
+  'iclr',
+  'cvpr',
+  'acl',
+  'emnlp',
+  'journal of machine learning research',
+  'ieee transactions on pattern analysis and machine intelligence',
+  'nature machine intelligence',
 ];
 
 function clamp(n: number, min: number, max: number): number {
@@ -194,218 +204,97 @@ export async function fetchFeed(channel: FeedChannel, topic = 'biostatistics'): 
     });
   }
 
-  if (channel === 'biostat_papers') {
-    const q = encodeURIComponent(topic);
-    const res = await fetch(
-      `https://api.openalex.org/works?search=${q}&filter=has_abstract:true&sort=publication_date:desc&per-page=10`,
-    );
-    if (!res.ok) throw new Error(`OpenAlex ${res.status}`);
-    const data = (await res.json()) as {
-      results?: Array<{
-        id?: string;
-        doi?: string;
-        title?: string;
-        publication_date?: string;
-        publication_year?: number;
-        cited_by_count?: number;
-        fwci?: number | null;
-        abstract_inverted_index?: Record<string, number[]> | null;
-        authorships?: Array<{ author?: { display_name?: string } }>;
-        primary_location?: {
-          landing_page_url?: string;
-          source?: { display_name?: string; type?: string };
-        };
-      }>;
-    };
-
-    return (data.results || []).map((w, idx) => {
-      const link = w.doi || w.primary_location?.landing_page_url || w.id || 'https://openalex.org/';
-      const venue = w.primary_location?.source?.display_name || 'Journal / Preprint';
-      const sourceType = (w.primary_location?.source?.type || '').toLowerCase();
-      const venueLower = venue.toLowerCase();
-      const date = (w.publication_date || '').slice(0, 10);
-      const year = w.publication_year ? String(w.publication_year) : date ? date.slice(0, 4) : '—';
-      const cites = w.cited_by_count ?? 0;
-      const fwci = typeof w.fwci === 'number' ? Number(w.fwci.toFixed(2)) : undefined;
-      const authors = (w.authorships || [])
-        .map((a) => a.author?.display_name)
-        .filter(Boolean)
-        .slice(0, 3)
-        .join(', ');
-
-      const isTopVenue = TOP_TIER_VENUES.some((tv) => venueLower.includes(tv));
-      const isJournal = sourceType === 'journal';
-      const isPreprint = venueLower.includes('arxiv') || venueLower.includes('medrxiv') || venueLower.includes('biorxiv') || sourceType === 'repository';
-
-      // 嚴格依據 OpenAlex 真實欄位（期刊來源 / FWCI / 引用數）給出誠實 RANK
-      let rankTier: RankTier = 'B';
-      let rankLabel = isPreprint ? 'B · 預印本 / 新文獻' : 'B · 新發表研究';
-      let rankReason = '依 OpenAlex 來源類型、FWCI 與引用數分級（無偽造 IF）';
-
-      if (isTopVenue || (fwci !== undefined && fwci >= 2.8) || cites >= 40) {
-        rankTier = 'S';
-        rankLabel = isTopVenue ? 'S · 領域頂刊' : 'S · 高影響力訊號';
-        rankReason = isTopVenue
-          ? `收錄於核心頂尖期刊《${venue}》`
-          : `OpenAlex FWCI ${fwci ?? '—'} · 引用 ${cites} 次`;
-      } else if (isJournal || (fwci !== undefined && fwci >= 1.1) || cites >= 8) {
-        rankTier = 'A';
-        rankLabel = 'A · 同儕審查期刊';
-        rankReason = `期刊來源《${venue}》${cites ? ` · 引用 ${cites}` : ''}`;
-      }
-
-      const venuePts = isTopVenue ? 34 : isJournal ? 24 : 14;
-      const impactPts = Math.min(34, Math.round(Math.log2(cites + 1) * 6 + (fwci ? Math.min(18, fwci * 6) : 6)));
-      const recPts = recencyPoints(date);
-      const abstractEn = trimAbstract(reconstructOpenAlexAbstract(w.abstract_inverted_index));
-      const absPts = abstractEn ? 6 : 0;
-      const recommendScore = clamp(venuePts + impactPts + recPts + absPts, 38, 98);
-      const arxivId = extractArxivId(link) || extractArxivId(w.doi);
-
-      return {
-        id: w.id || `oa-${idx}`,
-        channel,
-        title: w.title || 'Untitled study',
-        url: link,
-        copyUrl: link,
-        publishedDate: date,
-        year,
-        venue,
-        authors: authors || undefined,
-        arxivId,
-        doi: w.doi,
-        citations: cites,
-        fwci,
-        rankTier,
-        rankLabel,
-        rankReason,
-        recommendScore,
-        scoreBreakdown: `來源 ${venuePts} + 學術訊號 ${impactPts} + 時效 ${recPts}${absPts ? ' + 完整摘要 6' : ''}`,
-        abstractEn,
-        meta: `${venue}${cites ? ` · 引用 ${cites}` : ''}${fwci !== undefined ? ` · FWCI ${fwci}` : ''}`,
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const queryTopic =
+    channel === 'ml_papers' ? 'large language models OR machine learning inference' : topic;
+  const q = encodeURIComponent(queryTopic);
+  const res = await fetch(
+    `https://api.openalex.org/works?search=${q}&filter=has_abstract:true,to_publication_date:${todayIso}&sort=publication_date:desc&per-page=10`,
+  );
+  if (!res.ok) throw new Error(`OpenAlex ${res.status}`);
+  const data = (await res.json()) as {
+    results?: Array<{
+      id?: string;
+      doi?: string;
+      title?: string;
+      publication_date?: string;
+      publication_year?: number;
+      cited_by_count?: number;
+      fwci?: number | null;
+      abstract_inverted_index?: Record<string, number[]> | null;
+      authorships?: Array<{ author?: { display_name?: string } }>;
+      primary_location?: {
+        landing_page_url?: string;
+        source?: { display_name?: string; type?: string };
       };
-    });
-  }
+    }>;
+  };
 
-  if (channel === 'hn_ml') {
-    const res = await fetch(
-      'https://hn.algolia.com/api/v1/search_by_date?query=machine+learning+OR+LLM+OR+statistics&tags=story&hitsPerPage=10',
-    );
-    if (!res.ok) throw new Error(`HN ${res.status}`);
-    const data = (await res.json()) as {
-      hits?: Array<{
-        objectID: string;
-        title?: string;
-        url?: string;
-        author?: string;
-        points?: number;
-        num_comments?: number;
-        created_at?: string;
-      }>;
-    };
+  return (data.results || []).map((w, idx) => {
+    const link = w.doi || w.primary_location?.landing_page_url || w.id || 'https://openalex.org/';
+    const venue = w.primary_location?.source?.display_name || 'Journal / Preprint';
+    const sourceType = (w.primary_location?.source?.type || '').toLowerCase();
+    const venueLower = venue.toLowerCase();
+    const date = (w.publication_date || '').slice(0, 10);
+    const year = w.publication_year ? String(w.publication_year) : date ? date.slice(0, 4) : '—';
+    const cites = w.cited_by_count ?? 0;
+    const fwci = typeof w.fwci === 'number' ? Number(w.fwci.toFixed(2)) : undefined;
+    const authors = (w.authorships || [])
+      .map((a) => a.author?.display_name)
+      .filter(Boolean)
+      .slice(0, 3)
+      .join(', ');
 
-    return (data.hits || []).map((h) => {
-      const pts = h.points ?? 0;
-      const comments = h.num_comments ?? 0;
-      const date = (h.created_at || '').slice(0, 10);
-      const year = date ? date.slice(0, 4) : '—';
-      const targetUrl = h.url || `https://news.ycombinator.com/item?id=${h.objectID}`;
-      const arxivId = extractArxivId(targetUrl);
+    const isTopVenue = TOP_TIER_VENUES.some((tv) => venueLower.includes(tv));
+    const isJournal = sourceType === 'journal';
+    const isPreprint = venueLower.includes('arxiv') || venueLower.includes('medrxiv') || venueLower.includes('biorxiv') || sourceType === 'repository';
 
-      let rankTier: RankTier = 'B';
-      let rankLabel = 'B · 社群新帖';
-      let rankReason = '依 Hacker News 推文分數與討論熱度分級';
-      if (pts >= 150 || comments >= 80) {
-        rankTier = 'S';
-        rankLabel = 'S · HN 熱議焦點';
-        rankReason = `高互動技術討論（▲${pts} / ${comments} 則留言）`;
-      } else if (pts >= 45 || comments >= 20) {
-        rankTier = 'A';
-        rankLabel = 'A · 值得追蹤';
-        rankReason = `社群共鳴度高（▲${pts} / ${comments} 則留言）`;
-      }
-
-      const heatPts = Math.min(54, Math.round(Math.log2(pts + comments + 2) * 7.5));
-      const recPts = recencyPoints(date);
-      const tierPts = rankTier === 'S' ? 20 : rankTier === 'A' ? 12 : 6;
-      const recommendScore = clamp(heatPts + recPts + tierPts, 36, 97);
-
-      return {
-        id: h.objectID,
-        channel,
-        title: h.title || 'Discussion',
-        url: targetUrl,
-        copyUrl: targetUrl,
-        publishedDate: date,
-        year,
-        venue: 'Hacker News · ML & Stats',
-        authors: h.author ? `@${h.author}` : undefined,
-        arxivId,
-        upvotes: pts,
-        rankTier,
-        rankLabel,
-        rankReason,
-        recommendScore,
-        scoreBreakdown: `討論熱度 ${heatPts} + 時效 ${recPts} + 層級 ${tierPts}`,
-        meta: `▲ ${pts} · ${comments} 則討論 · ${date}`,
-      };
-    });
-  }
-
-  // github_repos
-  const res = await fetch('https://api.github.com/users/MoreFoodQ/repos?sort=updated&per_page=10');
-  if (!res.ok) throw new Error(`GitHub ${res.status}`);
-  const repos = (await res.json()) as Array<{
-    id: number;
-    name: string;
-    html_url: string;
-    homepage?: string;
-    description?: string;
-    language?: string;
-    stargazers_count?: number;
-    updated_at?: string;
-  }>;
-
-  return repos.map((r) => {
-    const date = (r.updated_at || '').slice(0, 10);
-    const year = date ? date.slice(0, 4) : '—';
-    const dAgo = daysAgo(date);
-    const hasHome = Boolean(r.homepage);
-
+    // 嚴格依據 OpenAlex 真實欄位（期刊來源 / FWCI / 引用數）給出誠實 RANK
     let rankTier: RankTier = 'B';
-    let rankLabel = 'B · 實驗 / 參考庫';
-    let rankReason = '依最近更新活躍度與部署狀態分級';
-    if (dAgo <= 14 || hasHome) {
+    let rankLabel = isPreprint ? 'B · 預印本 / 新文獻' : 'B · 新發表研究';
+    let rankReason = '依 OpenAlex 來源類型、FWCI 與引用數分級（無偽造 IF）';
+
+    if (isTopVenue || (fwci !== undefined && fwci >= 2.8) || cites >= 40) {
       rankTier = 'S';
-      rankLabel = 'S · 活躍核心專案';
-      rankReason = hasHome ? '已部署線上站點且持續維護' : '近兩週內持續更新中';
-    } else if (dAgo <= 60) {
+      rankLabel = isTopVenue ? 'S · 領域頂刊 / 頂會' : 'S · 高影響力訊號';
+      rankReason = isTopVenue
+        ? `收錄於核心頂尖期刊／頂會《${venue}》`
+        : `OpenAlex FWCI ${fwci ?? '—'} · 引用 ${cites} 次`;
+    } else if (isJournal || (fwci !== undefined && fwci >= 1.1) || cites >= 8) {
       rankTier = 'A';
-      rankLabel = 'A · 近期維護中';
-      rankReason = '近兩個月內有提交更新';
+      rankLabel = 'A · 同儕審查期刊';
+      rankReason = `期刊來源《${venue}》${cites ? ` · 引用 ${cites}` : ''}`;
     }
 
+    const venuePts = isTopVenue ? 34 : isJournal ? 24 : 14;
+    const impactPts = Math.min(34, Math.round(Math.log2(cites + 1) * 6 + (fwci ? Math.min(18, fwci * 6) : 6)));
     const recPts = recencyPoints(date);
-    const activePts = hasHome ? 36 : 24;
-    const starPts = Math.min(24, (r.stargazers_count ?? 0) * 6 + 12);
-    const recommendScore = clamp(recPts + activePts + starPts, 45, 96);
+    const abstractEn = trimAbstract(reconstructOpenAlexAbstract(w.abstract_inverted_index));
+    const absPts = abstractEn ? 6 : 0;
+    const recommendScore = clamp(venuePts + impactPts + recPts + absPts, 38, 98);
+    const arxivId = extractArxivId(link) || extractArxivId(w.doi);
 
     return {
-      id: String(r.id),
+      id: w.id || `oa-${idx}`,
       channel,
-      title: r.name,
-      url: r.homepage || r.html_url,
-      copyUrl: r.html_url,
+      title: w.title || 'Untitled study',
+      url: link,
+      copyUrl: link,
       publishedDate: date,
       year,
-      venue: `GitHub · ${r.language || 'Repository'}`,
+      venue,
+      authors: authors || undefined,
+      arxivId,
+      doi: w.doi,
+      citations: cites,
+      fwci,
       rankTier,
       rankLabel,
       rankReason,
       recommendScore,
-      scoreBreakdown: `部署活躍 ${activePts} + 更新時效 ${recPts} + 專案完整度 ${starPts}`,
-      abstractEn: r.description || undefined,
-      meta: `${r.language || 'Project'} · 更新於 ${date}`,
+      scoreBreakdown: `來源 ${venuePts} + 學術訊號 ${impactPts} + 時效 ${recPts}${absPts ? ' + 完整摘要 6' : ''}`,
+      abstractEn,
+      meta: `${venue}${cites ? ` · 引用 ${cites}` : ''}${fwci !== undefined ? ` · FWCI ${fwci}` : ''}`,
     };
   });
 }

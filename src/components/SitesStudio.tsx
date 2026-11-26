@@ -440,6 +440,23 @@ export function SitesStudio({
 
                 {site.note && <p className="ecard-note">{site.note}</p>}
 
+                {site.quickLinks && site.quickLinks.length > 0 && (
+                  <div className="ecard-quicklinks">
+                    {site.quickLinks.map((ql) => (
+                      <a
+                        key={ql.url}
+                        href={ql.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="quicklink-pill"
+                      >
+                        <span>{ql.label}</span>
+                        <ArrowUpRight size={11} />
+                      </a>
+                    ))}
+                  </div>
+                )}
+
                 <div className="ecard-foot">
                   <div className="ecard-tags">
                     {site.tags.slice(0, 4).map((t) => (

@@ -13,6 +13,7 @@ export interface StudySite {
   note: string;
   pinned?: boolean;
   launchCmd?: string;
+  quickLinks?: Array<{ label: string; url: string }>;
 }
 
 export interface WordItem {
@@ -56,16 +57,20 @@ export const MY_DEFAULT_SITE_IDS = new Set([
   'biostat-study',
   'recall-lab',
   'paperdesk',
+]);
+
+// 已下線（如 404）或早期測試雜訊預設 ID，升級舊版快取時會自動移除（不影響使用者自行新增的網站）
+export const DEPRECATED_DEFAULT_SITE_IDS = new Set([
   'lobe-chat',
-  'quill-guides',
-  'quill-grammar-100',
+  'quill-local',
   'llms-scratch',
   'tmu-ai-1017',
-  'quill-local',
+  'quill-guides',
+  'quill-grammar-100',
 ]);
 
 export const DEFAULT_SITES: StudySite[] = [
-  // ── 自建核心網站與工具（優先主舞台） ──
+  // ── 自建核心網站與工具（優先主舞台，僅保留實際存活且常用的核心入口） ──
   {
     id: 'quill-quest',
     title: 'Quill & Quest · DET 主戰場',
@@ -77,6 +82,10 @@ export const DEFAULT_SITES: StudySite[] = [
     tags: ['DET', '題庫', 'Vercel'],
     note: '每日 15–25 分鐘：優先刷 Read & Complete、Listen & Type、難度 3–5',
     pinned: true,
+    quickLinks: [
+      { label: '語法介詞急救包', url: 'https://quill-quest-ten.vercel.app/#/guides' },
+      { label: 'Grammar 100 診斷', url: 'https://quill-quest-ten.vercel.app/#/custom?bank=grammar-survival-100' },
+    ],
   },
   {
     id: 'biostat-study',
@@ -88,19 +97,6 @@ export const DEFAULT_SITES: StudySite[] = [
     env: 'online',
     tags: ['生物統計', 'Vercel', '雙語'],
     note: '重點複習假設檢定、迴歸與存活分析',
-    pinned: true,
-  },
-  {
-    id: 'paperdesk',
-    title: 'PaperDesk · 地端論文與電子書台',
-    subtitle: 'PDF / EPUB 雙語對照、圖片文字翻譯、AI 問答',
-    url: 'https://github.com/MoreFoodQ/PaperDesk',
-    domain: 'tools',
-    ownership: 'mine',
-    env: 'local',
-    tags: ['PDF', 'EPUB', '地端'],
-    note: '地端跑 Codex / Claude CLI 省 API 費；筆記可匯出單檔 HTML',
-    launchCmd: 'Open-PaperDesk.cmd',
     pinned: true,
   },
   {
@@ -116,71 +112,17 @@ export const DEFAULT_SITES: StudySite[] = [
     pinned: true,
   },
   {
-    id: 'lobe-chat',
-    title: 'LobeChat · 私人 AI 對話台',
-    subtitle: '日常英文寫作批改、程式與概念討論',
-    url: 'https://lobe-chat-rho-seven-22.vercel.app',
-    domain: 'ml',
-    ownership: 'mine',
-    env: 'online',
-    tags: ['AI', 'Vercel'],
-    note: '可用來練 DET 口說／寫作潤飾',
-  },
-  {
-    id: 'quill-guides',
-    title: 'Quill & Quest · 語法介詞急救包',
-    subtitle: '13 張 30 秒直覺圖解卡＋快測（/#/guides）',
-    url: 'https://quill-quest-ten.vercel.app/#/guides',
-    domain: 'english',
-    ownership: 'mine',
-    env: 'online',
-    tags: ['介係詞', '時態', '微指南'],
-    note: '做錯 Read & Complete / 寫作時隨時翻查',
-  },
-  {
-    id: 'quill-grammar-100',
-    title: 'Grammar Survival 100 題',
-    subtitle: 'B1→B2 核心文法摸底與句型改寫',
-    url: 'https://quill-quest-ten.vercel.app/#/custom?bank=grammar-survival-100',
-    domain: 'english',
-    ownership: 'mine',
-    env: 'online',
-    tags: ['文法', '診斷'],
-    note: '檢查時態、假設語氣、非限定關係子句弱點',
-  },
-  {
-    id: 'llms-scratch',
-    title: 'LLMs from Scratch (PyTorch)',
-    subtitle: '從零手寫 Transformer、Attention 與微調',
-    url: 'https://github.com/MoreFoodQ/LLMs-from-scratch',
-    domain: 'ml',
-    ownership: 'mine',
-    env: 'github',
-    tags: ['PyTorch', 'LLM', '實作'],
-    note: '從 Tokenizer、Self-Attention 到指令微調',
-  },
-  {
-    id: 'tmu-ai-1017',
-    title: 'TMU AI 實務與自動化筆記',
-    subtitle: 'AI 流程自動化與低程式碼應用實務班',
-    url: 'https://github.com/MoreFoodQ/tmu-ai-1017',
-    domain: 'ml',
-    ownership: 'mine',
-    env: 'github',
-    tags: ['Automation', 'Workflow'],
-    note: '實作自動化流程參考倉庫',
-  },
-  {
-    id: 'quill-local',
-    title: 'Quill & Quest · 本機開發／離線站',
-    subtitle: '本機 127.0.0.1:5180 免登入直接練習',
-    url: 'http://127.0.0.1:5180/',
+    id: 'paperdesk',
+    title: 'PaperDesk · 地端論文與電子書台',
+    subtitle: 'PDF / EPUB 雙語對照、圖片文字翻譯、AI 問答',
+    url: 'https://github.com/MoreFoodQ/PaperDesk',
     domain: 'tools',
     ownership: 'mine',
     env: 'local',
-    tags: ['本機', '127.0.0.1'],
-    note: '雙擊 Quill-Quest-Portable\\Start-QuillQuest.cmd 啟動',
-    launchCmd: 'Start-QuillQuest.cmd',
+    tags: ['PDF', 'EPUB', '地端'],
+    note: '地端跑 Codex / Claude CLI 省 API 費；筆記可匯出單檔 HTML',
+    launchCmd: 'Open-PaperDesk.cmd',
+    pinned: true,
   },
 
   // ── 外部精選資源（獨立分類，不擠壓個人作品） ──

@@ -30,8 +30,7 @@ interface PapersStudioProps {
 const CHANNEL_TABS: Array<[FeedChannel, string, string]> = [
   ['hf_papers', 'AI / ML 今日論文', 'Hugging Face Daily'],
   ['biostat_papers', '生統最新文獻', 'OpenAlex Live'],
-  ['hn_ml', 'ML 技術討論', 'Hacker News'],
-  ['github_repos', 'MoreFoodQ 動態', 'GitHub'],
+  ['ml_papers', 'ML / LLM 實證期刊', 'OpenAlex Live'],
 ];
 
 export function PapersStudio({ onNotify }: PapersStudioProps) {
